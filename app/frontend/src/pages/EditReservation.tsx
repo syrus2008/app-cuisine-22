@@ -1,0 +1,192 @@
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import ReservationForm from '../components/ReservationForm'
+import BillingPanel from '../components/BillingPanel'
+import { useEffect, useState } from 'react'
+import { api, fileDownload } from '../lib/api'
+import { Reservation } from '../types'
+import { ArrowLeft, Copy, Receipt, Printer, FileText, Trash2 } from 'lucide-react'
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
+
+export default function EditReservation() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const [data, setData] = useState<Reservation | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [saveOk, setSaveOk] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  const isExisting = !!id && id !== 'new' && uuidRegex.test(id)
+  const [tab, setTab] = useState<'fiche' | 'facturation'>(
+    searchParams.get('tab') === 'facturation' ? 'facturation' : 'fiche'
+  )
+  const [tabRefreshing, setTabRefreshing] = useState(false)
+
+  function switchTab(newTab: 'fiche' | 'facturation') {
+    if (newTab === 'fiche' && tab === 'facturation' && isExisting && id) {
+      setTabRefreshing(true)
+      api.get(`/api/reservations/${id}`)
+        .then(r => { setData(r.data) })
+        .catch(() => {})
+        .finally(() => setTabRefreshing(false))
+    }
+    setTab(newTab)
+  }
+
+  useEffect(() => {
+    // If not a valid UUID (including 'new' or missing/garbled like 'nov'), treat as new and prefill immediately
+    if (!isExisting) {
+      const params = new URLSearchParams(location.search)
+      const d = params.get('date') || new Date().toISOString().slice(0,10)
+      setData({
+        id: '' as any,
+        client_name: '',
+        pax: 2,
+        service_date: d,
+        arrival_time: '',
+        drink_formula: 'sans alcool',
+        notes: '',
+        status: 'draft',
+        final_version: false,
+        on_invoice: false,
+        allergens: '',
+        created_at: '' as any,
+        updated_at: '' as any,
+        items: []
+      } as Reservation)
+      return
+    }
+    // Existing reservation: we have a valid UUID id
+    setLoading(true)
+    setData(null)
+    setError(null)
+    api.get(`/api/reservations/${id}`)
+      .then(r=> setData(r.data))
+      .catch((e:any)=> setError(e?.userMessage || e?.response?.data?.detail || e?.message || 'Erreur de chargement'))
+      .finally(()=> setLoading(false))
+  }, [id, isExisting, location.search])
+
+  async function save(payload: any) {
+    setError(null)
+    try {
+      if (id && id !== 'new') {
+        const res = await api.put(`/api/reservations/${id}`, payload)
+        setData(res.data)
+        setSaveOk(true)
+        setTimeout(() => setSaveOk(false), 3000)
+      } else {
+        const res = await api.post('/api/reservations', payload)
+        navigate(`/reservation/${res.data.id}`)
+      }
+    } catch (e: any) {
+      setError(e?.userMessage || e?.response?.data?.detail || e?.message || 'Erreur lors de l\'enregistrement')
+    }
+  }
+
+  async function handleDelete() {
+    if (!id || id === 'new') return
+    setError(null)
+    try {
+      await api.delete(`/api/reservations/${id}`)
+      navigate('/')
+    } catch (e: any) {
+      setError(e?.userMessage || e?.response?.data?.detail || e?.message || 'Erreur lors de la suppression')
+    } finally {
+      setShowDeleteModal(false)
+    }
+  }
+
+  async function duplicate() {
+    if (!id || id === 'new') return
+    setError(null)
+    try {
+      const res = await api.post(`/api/reservations/${id}/duplicate`)
+      navigate(`/reservation/${res.data.id}`)
+    } catch (e: any) {
+      setError(e?.userMessage || e?.response?.data?.detail || e?.message || 'Erreur lors du doublon')
+    }
+  }
+
+  const navActions = (
+    <>
+      <button className="btn btn-sm btn-outline" onClick={() => navigate(-1)}>
+        <ArrowLeft className="w-4 h-4" /> Retour
+      </button>
+      {id && id !== 'new' && (
+        <>
+          <button className="btn btn-sm btn-outline" onClick={duplicate}>
+            <Copy className="w-4 h-4" /> Dupliquer
+          </button>
+          <button className="btn btn-sm btn-outline" onClick={() => fileDownload(`/api/reservations/${id}/pdf`)} title="Télécharger la fiche cuisine">
+            <Printer className="w-4 h-4" /> Fiche PDF
+          </button>
+          <button className="btn btn-sm" style={{ backgroundColor: '#dc2626', color: '#fff', borderColor: '#dc2626' }} onClick={() => setShowDeleteModal(true)}>
+            <Trash2 className="w-4 h-4" /> Supprimer
+          </button>
+        </>
+      )}
+    </>
+  )
+
+  return (
+    <div>
+      {error && (
+        <div className="container pt-4">
+          <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700">{error}</div>
+        </div>
+      )}
+      {saveOk && (
+        <div className="container pt-4">
+          <div className="p-3 rounded-md bg-green-50 border border-green-200 text-green-700 flex items-center gap-2 text-sm font-medium">
+            ✓ Fiche sauvegardée
+          </div>
+        </div>
+      )}
+
+      {/* ── Onglets (uniquement pour une fiche existante) ── */}
+      {isExisting && (
+        <div className="res-tab-bar">
+          <button
+            className={`res-tab-btn ${tab === 'fiche' ? 'res-tab-btn--active' : ''}`}
+            onClick={() => switchTab('fiche')}
+          >
+            <FileText className="w-4 h-4" /> Fiche
+          </button>
+          <button
+            className={`res-tab-btn ${tab === 'facturation' ? 'res-tab-btn--active' : ''}`}
+            onClick={() => switchTab('facturation')}
+          >
+            <Receipt className="w-4 h-4" /> Facturation
+          </button>
+        </div>
+      )}
+
+      {/* ── Contenu selon l'onglet ── */}
+      {(isExisting && (loading || tabRefreshing || !data)) ? (
+        <div className="container pt-6">
+          <div className="card"><div className="card-body text-gray-600">Chargement…</div></div>
+        </div>
+      ) : tab === 'facturation' && isExisting && id ? (
+        <BillingPanel reservationId={id} reservation={data} />
+      ) : (
+        <div key={(data && (data as any).id) || (!isExisting ? 'new' : id)}>
+          <ReservationForm
+            initial={data || undefined}
+            onSubmit={save}
+            formId="reservation-form"
+            onOpenBilling={isExisting ? () => setTab('facturation') : undefined}
+            navActions={navActions}
+          />
+        </div>
+      )}
+      <ConfirmDeleteModal
+        open={showDeleteModal}
+        clientName={data?.client_name || ''}
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteModal(false)}
+      />
+    </div>
+  )
+}
