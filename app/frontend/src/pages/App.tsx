@@ -1,6 +1,7 @@
 import { Routes, Route, NavLink } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { Home as HomeIcon, UtensilsCrossed, Settings as SettingsIcon, History, ShoppingCart, Building2, AlertTriangle, Receipt, LayoutGrid, Package, LogOut, Sun, UsersRound } from 'lucide-react'
+import { Home as HomeIcon, UtensilsCrossed, Settings as SettingsIcon, History, ShoppingCart, Building2, AlertTriangle, Receipt, LayoutGrid, Package, LogOut, Sun } from 'lucide-react'
 import { api, getAccessToken, setAccessToken } from '../lib/api'
 import LoginPage from './LoginPage'
 import NotesWidget from '../components/NotesWidget'
@@ -63,11 +64,11 @@ export default function App() {
           </NavLink>}
           {canAccess('reservations') && <NavLink to="/past" className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}>
             <History className="w-4 h-4"/> Passées
-          </NavLink>}
-          {canAccess('rooftop') && <NavLink to="/rooftop" className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}>
+          </NavLink>
+          <NavLink to="/rooftop" className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}>
             <Sun className="w-4 h-4"/> Rooftop
-          </NavLink>}
-          {canAccess('incidents') && <NavLink to="/incidents" className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}>
+          </NavLink>
+          <NavLink to="/incidents" className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}>
             <AlertTriangle className="w-4 h-4"/> Plaintes
           </NavLink>}
           {canAccess('floorplan') && <NavLink to="/salle" className={({isActive}) => `nav-link ${isActive ? 'active' : ''}`}>
@@ -91,11 +92,10 @@ export default function App() {
           </NavLink>}
           {canAccess('settings') && <NavLink to="/settings" className={({isActive}) => `nav-link nav-link-secondary ${isActive ? 'active' : ''}`}>
             <SettingsIcon className="w-4 h-4"/> Paramètres
-          </NavLink>}
+          </NavLink>
           <button className="nav-link nav-link-secondary nav-logout" onClick={() => { setAccessToken(null); setAuthenticated(false) }}>
             <LogOut className="w-4 h-4"/> Déconnexion
           </button>
-          {canAccess('users') && <NavLink to="/users" className={({isActive}) => `nav-link nav-link-secondary ${isActive ? 'active' : ''}`}><UsersRound className="w-4 h-4"/> Utilisateurs</NavLink>}
         </nav>
       </aside>
       <main className="content">
@@ -103,7 +103,6 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/past" element={<PastReservations />} />
           <Route path="/rooftop" element={<RooftopReservationsPage />} />
-          <Route path="/users" element={<UsersPage />} />
           <Route path="/incidents" element={<IncidentsPage />} />
           <Route path="/salle" element={<FloorPlanPage />} />
           <Route path="/reservation/new" element={<EditReservation />} />
