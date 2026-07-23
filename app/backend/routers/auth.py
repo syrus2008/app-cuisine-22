@@ -14,7 +14,9 @@ bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def serialize_user(user: User) -> UserRead:
-    return UserRead(id=user.id, email=user.email, role=user.role or "member", permissions=[item for item in (user.permissions or "").split(",") if item])
+    # NULL can exist only on a legacy owner account during migration; preserve
+    # its administrative access rather than accidentally hiding its menu.
+    return UserRead(id=user.id, email=user.email, role=user.role or "admin", permissions=[item for item in (user.permissions or "").split(",") if item])
 
 
 def current_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme), session: Session = Depends(get_session)) -> User:
@@ -68,7 +70,7 @@ def me(user: User = Depends(current_user)):
 
 
 def require_admin(user: User = Depends(current_user)) -> User:
-    if user.role != "admin":
+    if (user.role or "admin") != "admin":
         raise HTTPException(status_code=403, detail="Accès administrateur requis.")
     return user
 

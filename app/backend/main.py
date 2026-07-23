@@ -54,7 +54,9 @@ async def require_api_authentication(request: Request, call_next):
                 "/api/auth/users": "users",
             }.items() if path.startswith(prefix)), None)
             permissions = {item for item in (user.permissions or "").split(",") if item}
-            if user.role != "admin" and (required_permission is None or required_permission not in permissions):
+            # Accounts created before roles existed are the original owner
+            # account; keep its access even if a legacy migration returned NULL.
+            if (user.role or "admin") != "admin" and (required_permission is None or required_permission not in permissions):
                 return JSONResponse(status_code=403, content={"detail": "Vous n’avez pas accès à cette section."})
     return await call_next(request)
 
